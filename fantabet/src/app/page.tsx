@@ -1,50 +1,76 @@
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+"use client";
 
-type Round = {
-  id: string
-  name: string
-  lock_at: string | null
-  status: string
-}
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-async function getRounds(): Promise<Round[]> {
-  const { data, error } = await supabase
-    .from('rounds')
-    .select('id,name,lock_at,status')
-    .order('start_at', { ascending: false })
-  if (error) {
-    console.error('getRounds error:', error)
-    return []
-  }
-  return (data ?? []) as Round[]
-}
+export default function Home() {
+  const [rounds, setRounds] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function Home() {
-  const rounds = await getRounds()
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    const fetchRounds = async () => {
+      const { data, error } = await supabase
+        .from("rounds")
+        .select("id, name, status, start_at")
+        .order("start_at", { ascending: false });
+      if (!error && data) setRounds(data);
+      setLoading(false);
+    };
+    fetchRounds();
+  }, []);
 
   return (
-    <main className="max-w-3xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Giornate Fantabet</h1>
-      {rounds.length === 0 ? (
-        <p className="text-gray-500">Nessuna giornata disponibile.</p>
+    <main className="min-h-screen bg-gray-100 p-6">
+      <h1 className="text-3xl font-bold mb-6 text-center">🏆 Fantabet</h1>
+
+      {loading ? (
+        <p className="text-center text-gray-500">Caricamento giornate...</p>
+      ) : rounds.length === 0 ? (
+        <p className="text-center text-gray-500">Nessuna giornata disponibile.</p>
       ) : (
-        <ul className="space-y-3">
+        <div className="max-w-2xl mx-auto grid gap-3">
           {rounds.map((r) => (
-            <li key={r.id} className="border rounded p-4 flex items-center justify-between">
-              <div>
-                <div className="font-semibold">{r.name}</div>
-                <div className="text-sm text-gray-500">
-                  Lock: {r.lock_at ? new Date(r.lock_at).toLocaleString() : '—'} · Stato: {r.status}
-                </div>
+            <Link
+              key={r.id}
+              href={`/round/${r.id}`}
+              className="block bg-white rounded-xl shadow p-4 hover:bg-blue-50 transition"
+            >
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">{r.name}</span>
+                <span
+                  className={`text-sm px-3 py-1 rounded-full ${
+                    r.status === "open"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {r.status}
+                </span>
               </div>
-              <Link href={`/round/${r.id}`} className="px-3 py-1 bg-black text-white rounded">
-                Apri
-              </Link>
-            </li>
+              <div className="text-sm text-gray-500 mt-1">
+                {new Date(r.start_at).toLocaleDateString("it-IT")}
+              </div>
+            </Link>
           ))}
-        </ul>
+        </div>
       )}
+
+      <footer className="text-center mt-8 text-sm text-gray-400">
+        <Link href="/login" className="underline">
+          🔐 Accedi
+        </Link>{" "}
+        |{" "}
+        <Link href="/admin/round/test" className="underline">
+          ⚙️ Admin
+        </Link>
+      </footer>
     </main>
-  )
+  );
 }
+
