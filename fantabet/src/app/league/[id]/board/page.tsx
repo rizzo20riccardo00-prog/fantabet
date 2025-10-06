@@ -1,13 +1,24 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-async function getLeagueBoard(leagueId: string) {
-  const { data } = await supabase
+type LeagueRow = {
+  user_id: string
+  total_points: number
+  rounds_played: number
+  profiles: { nickname?: string | null } | null
+}
+
+async function getLeagueBoard(leagueId: string): Promise<LeagueRow[]> {
+  const { data, error } = await supabase
     .from('leaderboard')
     .select('user_id, total_points, rounds_played, profiles(nickname)')
     .eq('league_id', leagueId)
     .order('total_points', { ascending: false })
-  return data ?? []
+  if (error) {
+    console.error('getLeagueBoard error:', error)
+    return []
+  }
+  return (data ?? []) as LeagueRow[]
 }
 
 export default async function LeagueBoard({ params }: { params: { id: string } }) {
@@ -27,7 +38,7 @@ export default async function LeagueBoard({ params }: { params: { id: string } }
           </tr>
         </thead>
         <tbody>
-          {rows.map((r: any) => (
+          {rows.map((r) => (
             <tr key={r.user_id} className="border-t">
               <td className="p-2">{r.profiles?.nickname ?? r.user_id}</td>
               <td className="p-2 text-right">{r.total_points}</td>

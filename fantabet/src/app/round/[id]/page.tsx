@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 type Match = { id: string; home_team: string; away_team: string; kickoff_at: string }
+type Choice = { market: string; value: string }
 
 const MARKETS = {
   '1X2': { label: '1X2 (3pt)', values: ['1', 'X', '2'], points: 3 },
@@ -22,10 +23,9 @@ export default function RoundEditor({ params }: { params: { id: string } }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [roundName, setRoundName] = useState<string>('')
   const [matches, setMatches] = useState<Match[]>([])
-  const [choices, setChoices] = useState<Record<string, { market: string; value: string }>>({})
+  const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [msg, setMsg] = useState<string>('')
 
-  // Auth guard + load data
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser()
@@ -35,15 +35,16 @@ export default function RoundEditor({ params }: { params: { id: string } }) {
       }
       setUserId(auth.user.id)
 
-      const { data: r } = await supabase.from('rounds').select('name, lock_at, status').eq('id', params.id).maybeSingle()
+      const { data: r } = await supabase.from('rounds').select('name').eq('id', params.id).maybeSingle()
       setRoundName(r?.name ?? '')
 
       const { data: mm } = await supabase
         .from('matches')
-        .select('id, home_team, away_team, kickoff_at')
+        .select('id,home_team,away_team,kickoff_at')
         .eq('round_id', params.id)
         .order('kickoff_at', { ascending: true })
-      setMatches(mm ?? [])
+
+      setMatches((mm ?? []) as Match[])
     })()
   }, [params.id, router])
 
@@ -54,12 +55,10 @@ export default function RoundEditor({ params }: { params: { id: string } }) {
   const submit = async () => {
     setMsg('')
     if (!userId) return
-    // deve esserci 1 scelta per ciascun match
     if (Object.keys(choices).length !== matches.length) {
       setMsg('Devi selezionare 1 pronostico per ogni partita.')
       return
     }
-    // invia a /round/[id]/submit con token utente per rispettare RLS
     const { data: session } = await supabase.auth.getSession()
     const access_token = session.session?.access_token
     if (!access_token) {
@@ -68,16 +67,12 @@ export default function RoundEditor({ params }: { params: { id: string } }) {
     }
     const r = await fetch(`/round/${params.id}/submit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${access_token}`,
-      },
-      body: JSON.stringify({ choices }), // { matchId: {market,value} }
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${access_token}` },
+      body: JSON.stringify({ choices }),
     })
     const j = await r.json()
-    if (!r.ok) {
-      setMsg(j.error ?? 'Errore di salvataggio.')
-    } else {
+    if (!r.ok) setMsg(j.error ?? 'Errore di salvataggio.')
+    else {
       setMsg('✅ Schedina salvata!')
       router.push(`/round/${params.id}/board`)
     }

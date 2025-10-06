@@ -2,34 +2,32 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function Login() {
+export default function LoginPage() {
   const [email, setEmail] = useState('')
-  const [message, setMessage] = useState('')
+  const [msg, setMsg] = useState<string>('')
 
-  const send = async () => {
+  const sendLink = async () => {
+    setMsg('')
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin }
     })
-    setMessage(error ? error.message : '✅ Controlla la mail per il link di accesso!')
+    if (error) setMsg(error.message)
+    else setMsg('✅ Controlla la tua mail per il magic link.')
   }
 
   return (
-    <div className="max-w-sm mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Entra in Fantabet</h1>
+    <main className="max-w-md mx-auto p-6 space-y-4">
+      <h1 className="text-2xl font-bold">Accedi</h1>
       <input
-        className="border p-2 w-full mb-3"
-        placeholder="Inserisci la tua email"
+        type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        placeholder="tua@email.com"
+        className="w-full border p-2 rounded"
       />
-      <button
-        onClick={send}
-        className="bg-black text-white px-4 py-2 rounded"
-      >
-        Invia link
-      </button>
-      <p className="mt-3 text-sm">{message}</p>
-    </div>
+      <button onClick={sendLink} className="bg-black text-white px-4 py-2 rounded">Invia magic link</button>
+      {!!msg && <p className="text-sm pt-2">{msg}</p>}
+    </main>
   )
 }

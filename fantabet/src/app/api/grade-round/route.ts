@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  // accetta sia JSON che form
   let round_id = ''
   const ctype = req.headers.get('content-type') || ''
   if (ctype.includes('application/json')) {
@@ -12,7 +11,7 @@ export async function POST(req: NextRequest) {
     round_id = String(form.get('round_id') || '')
   }
 
-  if (!round_id) return NextResponse.json({ ok:false, error:'round_id mancante' }, { status:400 })
+  if (!round_id) return NextResponse.json({ ok: false, error: 'round_id mancante' }, { status: 400 })
 
   const url = `${process.env.SUPABASE_URL}/functions/v1/grade_round`
   const r = await fetch(url, {
@@ -26,3 +25,4 @@ export async function POST(req: NextRequest) {
   const data = await r.json()
   return NextResponse.json(data, { status: r.status })
 }
+

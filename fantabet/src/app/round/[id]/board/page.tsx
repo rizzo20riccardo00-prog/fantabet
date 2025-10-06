@@ -1,8 +1,15 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-async function getBoard(roundId: string) {
-  const { data } = await supabase
+type BoardRow = {
+  id: string
+  user_id: string
+  ticket_scores: { total_points: number | null } | null
+  profiles: { nickname?: string | null } | null
+}
+
+async function getBoard(roundId: string): Promise<BoardRow[]> {
+  const { data, error } = await supabase
     .from('tickets')
     .select(`
       id,
@@ -12,7 +19,11 @@ async function getBoard(roundId: string) {
     `)
     .eq('round_id', roundId)
     .order('total_points', { referencedTable: 'ticket_scores', ascending: false })
-  return data ?? []
+  if (error) {
+    console.error('getBoard error:', error)
+    return []
+  }
+  return (data ?? []) as BoardRow[]
 }
 
 export default async function RoundBoard({ params }: { params: { id: string } }) {
@@ -25,10 +36,13 @@ export default async function RoundBoard({ params }: { params: { id: string } })
       </div>
       <table className="w-full border">
         <thead>
-          <tr className="bg-gray-100"><th className="p-2 text-left">Utente</th><th className="p-2 text-right">Punti</th></tr>
+          <tr className="bg-gray-100">
+            <th className="p-2 text-left">Utente</th>
+            <th className="p-2 text-right">Punti</th>
+          </tr>
         </thead>
         <tbody>
-          {rows.map((r: any) => (
+          {rows.map((r) => (
             <tr key={r.id} className="border-t">
               <td className="p-2">{r.profiles?.nickname ?? r.user_id}</td>
               <td className="p-2 text-right">{r.ticket_scores?.total_points ?? 0}</td>

@@ -1,7 +1,14 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-async function getRounds() {
+type Round = {
+  id: string
+  name: string
+  lock_at: string | null
+  status: string
+}
+
+async function getRounds(): Promise<Round[]> {
   const { data, error } = await supabase
     .from('rounds')
     .select('id,name,lock_at,status')
@@ -10,7 +17,7 @@ async function getRounds() {
     console.error('getRounds error:', error)
     return []
   }
-  return data ?? []
+  return (data ?? []) as Round[]
 }
 
 export default async function Home() {
@@ -28,7 +35,7 @@ export default async function Home() {
               <div>
                 <div className="font-semibold">{r.name}</div>
                 <div className="text-sm text-gray-500">
-                  Lock: {r.lock_at ? new Date(r.lock_at as string).toLocaleString() : '—'} · Stato: {r.status}
+                  Lock: {r.lock_at ? new Date(r.lock_at).toLocaleString() : '—'} · Stato: {r.status}
                 </div>
               </div>
               <Link href={`/round/${r.id}`} className="px-3 py-1 bg-black text-white rounded">
