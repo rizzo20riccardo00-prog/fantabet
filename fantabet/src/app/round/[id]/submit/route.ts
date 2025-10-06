@@ -4,14 +4,18 @@ import { createClient } from '@supabase/supabase-js'
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id: round_id } = await context.params  // ⬅️ Await della Promise
+
     const auth = req.headers.get('authorization') || ''
     const [, token] = auth.split(' ')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const sb = createClient(URL, ANON, { global: { headers: { Authorization: `Bearer ${token}` } } })
-    const round_id = params.id
     const { choices } = (await req.json()) as { choices: Record<string, { market: string; value: string }> }
 
     const { data: userRes, error: uErr } = await sb.auth.getUser()
@@ -25,9 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .eq('round_id', round_id)
       .eq('user_id', user_id)
       .maybeSingle()
-
     if (tErr) return NextResponse.json({ error: tErr.message }, { status: 400 })
-
     if (!t) {
       const { data: ins, error: insErr } = await sb.from('tickets').insert({ round_id, user_id }).select('id').single()
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
