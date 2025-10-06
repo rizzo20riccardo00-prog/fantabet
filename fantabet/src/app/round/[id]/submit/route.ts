@@ -12,33 +12,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const sb = createClient(URL, ANON, { global: { headers: { Authorization: `Bearer ${token}` } } })
     const round_id = params.id
-    const { choices } = await req.json() as { choices: Record<string, { market: string; value: string }> }
+    const { choices } = (await req.json()) as { choices: Record<string, { market: string; value: string }> }
 
-    // chi è l'utente?
     const { data: userRes, error: uErr } = await sb.auth.getUser()
-    if (uErr || !userRes.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (uErr || !userRes?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const user_id = userRes.user.id
 
     // ticket (crea se non esiste)
-    let { data: t } = await sb.from('tickets')
+    let { data: t, error: tErr } = await sb
+      .from('tickets')
       .select('id')
       .eq('round_id', round_id)
       .eq('user_id', user_id)
       .maybeSingle()
 
+    if (tErr) return NextResponse.json({ error: tErr.message }, { status: 400 })
+
     if (!t) {
-      const { data: ins, error: insErr } = await sb.from('tickets')
-        .insert({ round_id, user_id })
-        .select('id')
-        .single()
+      const { data: ins, error: insErr } = await sb.from('tickets').insert({ round_id, user_id }).select('id').single()
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
       t = ins
     }
 
-    // pulizia eventuali selezioni precedenti (opzionale)
+    // opzionale: pulizia precedenti selezioni
     await sb.from('selections').delete().eq('ticket_id', t.id)
 
-    // mappa punteggi
     const PTS: Record<string, number> = {
       '1X2': 3,
       'O1_5_HT': 2.5,
@@ -51,17 +49,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       'U3_5': 1,
     }
 
-    // trasformo choices in righe da inserire
-    const rows: any[] = []
-    for (const [match_id, { market, value }] of Object.entries(choices)) {
-      rows.push({
-        ticket_id: t.id,
-        match_id,
-        market,
-        value,
-        points_value: PTS[market] ?? 0
-      })
-    }
+    const rows = Object.entries(choices).map(([match_id, { market, value }]) => ({
+      ticket_id: t!.id,
+      match_id,
+      market,
+      value,
+      points_value: PTS[market] ?? 0,
+    }))
 
     const { error: insSelErr } = await sb.from('selections').insert(rows)
     if (insSelErr) return NextResponse.json({ error: insSelErr.message }, { status: 400 })
